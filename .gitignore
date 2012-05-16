@@ -6,3 +6,5 @@ apps/proxima/ebin
 dev/*
 doc/*
 rel/proxima
+data/*
+log/*
