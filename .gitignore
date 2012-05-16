@@ -1,0 +1,8 @@
+*.beam
+.eunit
+deps/*
+apps/proxima/ebin
+*~
+dev/*
+doc/*
+rel/proxima
