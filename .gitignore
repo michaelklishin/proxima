@@ -9,3 +9,4 @@ rel/proxima
 data/*
 log/*
 www/*
+erl_crash.dump

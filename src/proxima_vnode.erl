@@ -2,7 +2,6 @@
 -behaviour(riak_core_vnode).
 
 -include_lib("riak_core/include/riak_core_vnode.hrl").
--include_lib("misultin/include/misultin.hrl").
 
 -export([
   delete/1,
@@ -34,8 +33,8 @@ init([Partition]) ->
 
 handle_command({'GET', [], Req}, _Sender, State) ->
   lager:info("Serving a GET request~n"),
-  Response = Req:ok([{"Content-Type", "text/plain"}], <<"Hello World!">>),
-  {reply, {ok, Response}, State};
+  {ok, R} = cowboy_http_req:reply(200, [], <<"Hello from Cowboy!">>, Req),
+  {reply, {ok, R}, State};
   
 handle_command({Method, Path, Req}, _Sender, State) ->
   lager:warning("unhandled command: ~p~n", [{Method, Path, Req}]),
