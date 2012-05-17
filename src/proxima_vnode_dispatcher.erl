@@ -13,7 +13,7 @@
   code_change/3
 ]).
 
--record(state, { site, server, config }).
+-record(state, {site, server, client, config}).
 
 start_link() ->
   gen_server2:start_link({local, ?MODULE}, ?MODULE, [], [{timeout, infinity}]).
@@ -28,7 +28,7 @@ init([]) ->
 
   WebPort = case application:get_env(web_port) of
     {ok, P} -> P;
-    _ -> 3000
+    _ -> 4629
   end,
 
   lager:info("Starting HTTP server on ~p", [WebPort]),
@@ -37,7 +37,10 @@ init([]) ->
                         cowboy_tcp_transport, [{port, WebPort}],
                         cowboy_http_protocol, [{dispatch, Dispatch}]),
 
-  {ok, #state { server = ServerPid }}.
+  lager:info("Starting HTTP client"),
+  {ok, ClientPid} = ibrowse:start(),
+
+  {ok, #state {server = ServerPid, client = ClientPid}}.
 
 handle_call(Msg, From, State) ->
   io:format("handle_call: ~p ~p ~p~n", [Msg, From, State]),

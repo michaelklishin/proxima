@@ -22,6 +22,7 @@
 
 -record(state, {
   partition :: partition()
+               %% , client
 }).
 
 start_vnode(I) ->
@@ -29,21 +30,28 @@ start_vnode(I) ->
 
 init([Partition]) ->
   lager:debug("started ~p at partition ~p", [?MODULE, Partition]),
-  {ok, #state { partition = Partition }}.
+  {ok, Client} = cowboy_client:init([]),
+  {ok, #state {partition = Partition
+              %% , client = Client
+              }}.
 
-handle_command({'GET', [], Req}, _Sender, State) ->
-  lager:info("Serving a GET request~n"),
-  {ok, R} = cowboy_http_req:reply(200, [], <<"Hello from Cowboy!">>, Req),
+handle_command({'GET', _Path, Req}, _Sender, State) ->
+  {Host, _} = cowboy_http_req:header('Host', Req),
+  lager:info("Host: ~p", [binary_to_list(Host)]),
+  {ok, UpstreamStatus, UpstreamHeaders, UpstreamBody} = ibrowse:send_req("http://" ++ binary_to_list(Host), [], get),
+  lager:info("GET ~p => ~p~n", [("http://" ++ binary_to_list(Host)), UpstreamStatus]),
+  {ok, R} = cowboy_http_req:reply(200, [], <<"I am a cowboy">>, Req),
   {reply, {ok, R}, State};
-  
+
 handle_command({Method, Path, Req}, _Sender, State) ->
   lager:warning("unhandled command: ~p~n", [{Method, Path, Req}]),
-  {reply, {ok, Req:respond(404)}, State}.
+  {ok, R} = cowboy_http_req:reply(405, [{<<"allow">>, <<"GET">>}], <<"Hello from Cowboy!">>, Req),
+  {reply, {ok, R}, State}.
 
 handle_coverage(Request, KeySpaces, Sender, State) ->
   lager:debug("handle_coverage: ~p ~p ~p ~p~n", [Request, KeySpaces, Sender, State]),
   {continue, State}.
-  
+
 handle_exit(Pid, Reason, State) ->
   lager:debug("handle exit: ~p ~p~n", [Pid, Reason]),
   {stop, Reason, State}.
