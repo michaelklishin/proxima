@@ -21,12 +21,11 @@ handle(Req, State) ->
                 [{Idx, _Type}] -> Idx;
                 _ -> {0, node()}
             end,
-    lager:debug("Dispatching to ~p", [Index]),
+    lager:info("Dispatching to ~p", [Index]),
 
     case riak_core_vnode_master:sync_spawn_command(Index, {Method, Path, Req}, proxima_vnode_master) of
         {ok, R} -> R;
         {error, Reason} -> cowboy_http_req:reply(500, [], Reason, Req);
-        %%Req:respond(500, Reason);
         Unhandled ->
             lager:warning("Unhandled reply: ~p~n", [Unhandled]),
             cowboy_http_req:reply(500, [], <<"Unhandled reply">>, Req)

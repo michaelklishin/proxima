@@ -22,7 +22,7 @@
 
 -record(state, {
   partition :: partition()
-               %% , client
+               , client
 }).
 
 start_vnode(I) ->
@@ -32,15 +32,18 @@ init([Partition]) ->
   lager:debug("started ~p at partition ~p", [?MODULE, Partition]),
   {ok, Client} = cowboy_client:init([]),
   {ok, #state {partition = Partition
-              %% , client = Client
+              , client = Client
               }}.
 
-handle_command({'GET', _Path, Req}, _Sender, State) ->
+handle_command({'GET', _Path, Req}, _Sender, State=#state{client = Client}) ->
   {Host, _} = cowboy_http_req:header('Host', Req),
-  lager:info("Host: ~p", [binary_to_list(Host)]),
-  {ok, UpstreamStatus, UpstreamHeaders, UpstreamBody} = ibrowse:send_req("http://" ++ binary_to_list(Host), [], get),
-  lager:info("GET ~p => ~p~n", [("http://" ++ binary_to_list(Host)), UpstreamStatus]),
-  {ok, R} = cowboy_http_req:reply(200, [], <<"I am a cowboy">>, Req),
+  Host2 = list_to_binary("http://" ++ binary_to_list(Host)),
+  %% {ok, C2} = cowboy_client:request(<<"GET">>, Host2, Client),
+  %% {ok, UpstreamStatus, UpstreamHeaders, UpstreamBody} = cowboy_client:response(C2),
+  %% lager:info("GET ~p => ~p~n", [Host2, UpstreamStatus]),
+  lager:info("GET ~p ~n", [Host2]),
+  {ok, R} = cowboy_http_req:reply(200, [], <<"Hi">>, Req),
+  %% {reply, {ok, R}, State#state{client = C2}}
   {reply, {ok, R}, State};
 
 handle_command({Method, Path, Req}, _Sender, State) ->
