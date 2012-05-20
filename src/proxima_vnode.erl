@@ -3,6 +3,8 @@
 
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
+-define(SLASH, "/").
+
 -export([
   delete/1,
   encode_handoff_item/2,
@@ -37,8 +39,10 @@ init([Partition]) ->
 
 
 
-handle_command({Method, _Path, Req}, _Sender, State=#state{client = Client}) ->
-  Url = upstream_url(Req),
+handle_command({Method, Path, Req}, _Sender, State=#state{client = Client}) ->
+  lager:info(Path),
+  Url = upstream_url(Req, Path),
+  lager:debug("Upstream URL: ~p", [Url]),
   {ok, C2} = cowboy_client:request(list_to_binary(atom_to_list(Method)), Url, Client),
   {ok, UpstreamStatus, UpstreamHeaders, C3} = cowboy_client:response(C2),
   {ok, UpstreamBody, C4} = cowboy_client:response_body(C3),
@@ -84,6 +88,10 @@ terminate(_Reason, _State) ->
   ok.
 
 
-upstream_url(Req) ->
+upstream_url(Req, PathSegments) ->
     {Host, _} = cowboy_http_req:header('Host', Req),
-    list_to_binary("http://" ++ binary_to_list(Host)).
+    list_to_binary("http://" ++ binary_to_list(Host) ++ path_from(PathSegments)).
+
+path_from(L) ->
+    ?SLASH ++
+        string:join(lists:map(fun erlang:binary_to_list/1, L), ?SLASH).
