@@ -35,21 +35,17 @@ init([Partition]) ->
               , client = Client
               }}.
 
-handle_command({'GET', _Path, Req}, _Sender, State=#state{client = Client}) ->
-  {Host, _} = cowboy_http_req:header('Host', Req),
-  Host2 = list_to_binary("http://" ++ binary_to_list(Host)),
-  %% {ok, C2} = cowboy_client:request(<<"GET">>, Host2, Client),
-  %% {ok, UpstreamStatus, UpstreamHeaders, UpstreamBody} = cowboy_client:response(C2),
-  %% lager:info("GET ~p => ~p~n", [Host2, UpstreamStatus]),
-  lager:info("GET ~p ~n", [Host2]),
-  {ok, R} = cowboy_http_req:reply(200, [], <<"Hi">>, Req),
-  %% {reply, {ok, R}, State#state{client = C2}}
-  {reply, {ok, R}, State};
 
-handle_command({Method, Path, Req}, _Sender, State) ->
-  lager:warning("unhandled command: ~p~n", [{Method, Path, Req}]),
-  {ok, R} = cowboy_http_req:reply(405, [{<<"allow">>, <<"GET">>}], <<"Hello from Cowboy!">>, Req),
-  {reply, {ok, R}, State}.
+
+handle_command({Method, _Path, Req}, _Sender, State=#state{client = Client}) ->
+  Url = upstream_url(Req),
+  {ok, C2} = cowboy_client:request(list_to_binary(atom_to_list(Method)), Url, Client),
+  {ok, UpstreamStatus, UpstreamHeaders, C3} = cowboy_client:response(C2),
+  {ok, UpstreamBody, C4} = cowboy_client:response_body(C3),
+  lager:info("GET ~p => ~p~n", [binary_to_list(Url), UpstreamStatus]),
+  {reply, {ok, {UpstreamStatus, UpstreamHeaders, UpstreamBody}}, State}.
+
+
 
 handle_coverage(Request, KeySpaces, Sender, State) ->
   lager:debug("handle_coverage: ~p ~p ~p ~p~n", [Request, KeySpaces, Sender, State]),
@@ -86,3 +82,8 @@ delete(State) ->
 
 terminate(_Reason, _State) ->
   ok.
+
+
+upstream_url(Req) ->
+    {Host, _} = cowboy_http_req:header('Host', Req),
+    list_to_binary("http://" ++ binary_to_list(Host)).

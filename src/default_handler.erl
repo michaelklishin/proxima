@@ -12,8 +12,8 @@ init({_Any, http}, Req, []) ->
     {ok, Req, undefined}.
 
 handle(Req, State) ->
-    {Method, _} = cowboy_http_req:method(Req),
-    {Path, _} = cowboy_http_req:path(Req),
+    {Method, Req2} = cowboy_http_req:method(Req),
+    {Path, Req3} = cowboy_http_req:path(Req2),
 
     Id = mkid(Method, Path),
     Hash = riak_core_util:chash_key({Path, Id}),
@@ -23,14 +23,25 @@ handle(Req, State) ->
             end,
     lager:info("Dispatching to ~p", [Index]),
 
-    case riak_core_vnode_master:sync_spawn_command(Index, {Method, Path, Req}, proxima_vnode_master) of
-        {ok, R} -> R;
-        {error, Reason} -> cowboy_http_req:reply(500, [], Reason, Req);
-        Unhandled ->
-            lager:warning("Unhandled reply: ~p~n", [Unhandled]),
-            cowboy_http_req:reply(500, [], <<"Unhandled reply">>, Req)
-    end,
-    {ok, Req, State}.
+    Result = case riak_core_vnode_master:sync_spawn_command(Index, {Method, Path, Req3}, proxima_vnode_master) of
+                 {ok, R} ->
+                     R;
+                 {error, Reason} ->
+                     {ok, R} = cowboy_http_req:reply(500, [], Reason, Req3),
+                     R;
+                 Unhandled ->
+                     lager:warning("Unhandled reply: ~p~n", [Unhandled]),
+                     {ok, R} = cowboy_http_req:reply(500, [], <<"Unhandled reply">>, Req3),
+                     R
+             end,
+    {_N, Name} = Index,
+    {UpstreamStatus, UpstreamHeaders, UpstreamBody} = Result,
+    {ok, Res} = cowboy_http_req:reply(UpstreamStatus,
+                                      UpstreamHeaders ++
+                                          [{<<"x-handling-node">>, atom_to_list(Name)}],
+                                      UpstreamBody,
+                                      Req3),
+    {ok, Res, State}.
 
 
 terminate(_Req, _State) ->
@@ -38,8 +49,7 @@ terminate(_Req, _State) ->
 
 
 mkid(Method, Resource) ->
-  % Absconded from riak_core_util:mkclientid/1
-  {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),
-  {_,_,NowPart} = now(),
-  Id = erlang:phash2([Y,Mo,D,H,Mi,S,Method,Resource,NowPart]),
-  io_lib:format("~p", [Id]).
+    {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),
+    {_,_,NowPart} = now(),
+    Id = erlang:phash2([Y,Mo,D,H,Mi,S,Method,Resource,NowPart]),
+    io_lib:format("~p", [Id]).
