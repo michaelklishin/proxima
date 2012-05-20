@@ -96,7 +96,6 @@ path_from(Req, PathSegments) ->
         <<>> ->
             Path;
         V ->
-            lager:info(V),
             Path ++ ?QS_SEPARATOR
                 ++ binary_to_list(QS)
     end.
