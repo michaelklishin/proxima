@@ -4,6 +4,7 @@
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
 -define(SLASH, "/").
+-define(QS_SEPARATOR, "?").
 
 -export([
   delete/1,
@@ -24,7 +25,6 @@
 
 -record(state, {
   partition :: partition()
-               , client
 }).
 
 start_vnode(I) ->
@@ -32,23 +32,16 @@ start_vnode(I) ->
 
 init([Partition]) ->
   lager:debug("started ~p at partition ~p", [?MODULE, Partition]),
-  {ok, Client} = cowboy_client:init([]),
-  {ok, #state {partition = Partition
-              , client = Client
-              }}.
+  {ok, #state {partition = Partition}}.
 
 
 
-handle_command({Method, Path, Req}, _Sender, State=#state{client = Client}) ->
+handle_command({Method, Path, Req}, _Sender, State) ->
   {Headers, _} = cowboy_http_req:headers(Req),
-  lager:debug("Req headers: ~p", [Headers]),
   Url = upstream_url(Req, Path),
-  lager:debug("Upstream URL: ~p", [Url]),
-  {ok, C2} = cowboy_client:request(list_to_binary(atom_to_list(Method)), Url, Client),
-  {ok, UpstreamStatus, UpstreamHeaders, C3} = cowboy_client:response(C2),
-  {ok, UpstreamBody, C4} = cowboy_client:response_body(C3),
-  lager:info("GET ~p => ~p~n", [binary_to_list(Url), UpstreamStatus]),
-  {reply, {ok, {UpstreamStatus, UpstreamHeaders, UpstreamBody}}, State}.
+  {ok, {{_, UpstreamStatus, _}, UpstreamHeaders, UpstreamBody}} = httpc:request(get, {Url, normalize_headers(Headers)}, [{relaxed, true}], []),
+  lager:info("GET ~p => ~p~n", [Url, UpstreamStatus]),
+  {reply, {ok, {Url, UpstreamStatus, UpstreamHeaders, UpstreamBody}}, State}.
 
 
 
@@ -91,8 +84,46 @@ terminate(_Reason, _State) ->
 
 upstream_url(Req, PathSegments) ->
     {Host, _} = cowboy_http_req:header('Host', Req),
-    list_to_binary("http://" ++ binary_to_list(Host) ++ path_from(PathSegments)).
+    "http://" ++ binary_to_list(Host) ++ path_from(Req, PathSegments).
 
-path_from(L) ->
-    ?SLASH ++
-        string:join(lists:map(fun erlang:binary_to_list/1, L), ?SLASH).
+path_from(Req, PathSegments) ->
+    {QS, _} = cowboy_http_req:raw_qs(Req),
+    Path = ?SLASH ++
+        string:join(lists:map(fun erlang:binary_to_list/1, PathSegments), ?SLASH),
+    case QS of
+        [] ->
+            Path;
+        <<>> ->
+            Path;
+        V ->
+            lager:info(V),
+            Path ++ ?QS_SEPARATOR
+                ++ binary_to_list(QS)
+    end.
+
+
+as_list(K) when is_list(K) ->
+    k;
+as_list(K) when is_atom(K) ->
+    atom_to_list(K);
+as_list(K) when is_binary(K) ->
+    binary_to_list(K).
+
+normalize_method(<<"GET">>) ->
+    get;
+normalize_method("GET") ->
+    get;
+normalize_method(<<"get">>) ->
+    get;
+normalize_method("get") ->
+    get;
+normalize_method(get) ->
+    get;
+normalize_method(Method) ->
+    list_to_binary(atom_to_list(Method)).
+
+normalize_headers(L) ->
+    [{capitalize(as_list(K)), binary_to_list(V)} || {K, V} <- L].
+
+capitalize([F|Rest]) ->
+    [string:to_upper(F) | string:to_lower(Rest)].

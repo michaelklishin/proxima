@@ -10,3 +10,4 @@ data/*
 log/*
 www/*
 erl_crash.dump
+stale/*

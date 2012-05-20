@@ -21,7 +21,7 @@ handle(Req, State) ->
                 [{Idx, _Type}] -> Idx;
                 _ -> {0, node()}
             end,
-    lager:info("Dispatching to ~p", [Index]),
+    lager:debug("Dispatching to ~p", [Index]),
 
     Result = case riak_core_vnode_master:sync_spawn_command(Index, {Method, Path, Req3}, proxima_vnode_master) of
                  {ok, R} ->
@@ -35,10 +35,19 @@ handle(Req, State) ->
                      R
              end,
     {_N, Name} = Index,
-    {UpstreamStatus, UpstreamHeaders, UpstreamBody} = Result,
+    {Url, UpstreamStatus, UpstreamHeaders, UpstreamBody} = Result,
+    case UpstreamStatus of
+        400 ->
+            lager:warning("Response is 400, URL: ~p", [Url]);
+        401 ->
+            lager:warning("Response is 401, URL: ~p", [Url]);
+        _ ->
+            ok
+    end,
+
     {ok, Res} = cowboy_http_req:reply(UpstreamStatus,
-                                      UpstreamHeaders ++
-                                          [{<<"x-handling-node">>, atom_to_list(Name)}],
+                                      normalize_headers(UpstreamHeaders) ++
+                                          [{<<"X-Handling-Node">>, atom_to_list(Name)}],
                                       UpstreamBody,
                                       Req3),
     {ok, Res, State}.
@@ -53,3 +62,9 @@ mkid(Method, Resource) ->
     {_,_,NowPart} = now(),
     Id = erlang:phash2([Y,Mo,D,H,Mi,S,Method,Resource,NowPart]),
     io_lib:format("~p", [Id]).
+
+normalize_headers(L) ->
+    [{list_to_binary(capitalize(K)), list_to_binary(V)} || {K, V} <- L].
+
+capitalize([F|Rest]) ->
+    [string:to_upper(F) | string:to_lower(Rest)].
