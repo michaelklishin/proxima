@@ -20,9 +20,6 @@ start_link() ->
 
 init([]) ->
   inets:start(),
-  application:start(crypto),
-  application:start(public_key),
-  application:start(ssl),
   {ok, MasterNode} = application:get_env(master_node),
 
   case node() of

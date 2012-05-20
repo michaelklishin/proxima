@@ -6,6 +6,8 @@
 start() ->
     net_kernel:start(['helloworld@localhost']),
     application:start(crypto),
+    application:start(public_key),
+    application:start(ssl),
     application:start(sasl),
     application:start(lager),
     application:start(webmachine),
