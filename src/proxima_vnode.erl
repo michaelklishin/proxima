@@ -40,7 +40,8 @@ init([Partition]) ->
 
 
 handle_command({Method, Path, Req}, _Sender, State=#state{client = Client}) ->
-  lager:info(Path),
+  {Headers, _} = cowboy_http_req:headers(Req),
+  lager:debug("Req headers: ~p", [Headers]),
   Url = upstream_url(Req, Path),
   lager:debug("Upstream URL: ~p", [Url]),
   {ok, C2} = cowboy_client:request(list_to_binary(atom_to_list(Method)), Url, Client),
