@@ -2,7 +2,7 @@
              [{description,"Experimental elastic HTTP proxy"},
               {vsn,"1.0"},
               {registered,[]},
-              {applications,[kernel,stdlib,riak_core]},
+              {applications,[kernel,stdlib,riak_core,cowboy]},
               {mod,{proxima_app,[]}},
               {env,[]},
               {modules,[default_handler,proxima,proxima_app,proxima_http,
