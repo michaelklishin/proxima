@@ -5,5 +5,6 @@
               {applications,[kernel,stdlib,riak_core]},
               {mod,{proxima_app,[]}},
               {env,[]},
-              {modules,[default_handler,proxima,proxima_app,proxima_sup,
-                        proxima_vnode,proxima_vnode_dispatcher]}]}.
+              {modules,[default_handler,proxima,proxima_app,proxima_http,
+                        proxima_http_client,proxima_sup,proxima_vnode,
+                        proxima_vnode_dispatcher]}]}.
