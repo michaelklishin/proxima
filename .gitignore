@@ -11,3 +11,5 @@ log/*
 www/*
 erl_crash.dump
 stale/*
+*.tar.gz
+*.zip
