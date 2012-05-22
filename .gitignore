@@ -5,11 +5,12 @@ apps/proxima/ebin
 *~
 dev/*
 doc/*
-rel/proxima
 data/*
 log/*
 www/*
 erl_crash.dump
 stale/*
+rel/proxima
+rel/files/production/*
 *.tar.gz
 *.zip
